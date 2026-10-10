@@ -11,10 +11,6 @@ def best_voltage(measured):
     return max(measured.values(), default=0.0)
 
 
-def ideal_voltage(v_best, n_nodes):
-    return v_best * n_nodes
-
-
 def compute_health(voltages, measured, v_best):
     health = {}
     for node in voltages:
@@ -38,31 +34,61 @@ def rank_nodes(health, dead_threshold):
     return sorted(alive, key=lambda n: (-health[n], n))
 
 
-def best_configuration(ranked, measured):
-    best_k, best_v = 0, 0.0
-    sweep = [{"k": 0, "node": None, "voltage": 0.0}]
-    for k, node in enumerate(ranked, start=1):
-        v = k * measured[node]
-        sweep.append({"k": k, "node": node, "voltage": v})
-        if v >= best_v:
-            best_k, best_v = k, v
-    return set(ranked[:best_k]), best_v, sweep
+def string_power(nodes, measured, health, current):
+    if not nodes:
+        return 0.0
+    i_string = current * min(health[n] for n in nodes)
+    v_string = sum(measured[n] for n in nodes)
+    return i_string * v_string
 
 
-def optimize(voltages, active=None, dead_threshold=DEAD_THRESHOLD):
+def ideal_power(v_best, n_nodes, current):
+    return current * v_best * n_nodes
+
+
+def sweep_configurations(ranked, measured, health, current):
+    sweep = [{"k": 0, "node": None, "power": 0.0}]
+    for k in range(1, len(ranked) + 1):
+        power = string_power(ranked[:k], measured, health, current)
+        sweep.append({"k": k, "node": ranked[k - 1], "power": power})
+    return sweep
+
+
+def best_configuration(ranked, sweep):
+    best = max(sweep, key=lambda s: (s["power"], s["k"]))
+    return set(ranked[: best["k"]]), best["power"]
+
+
+def gain(p_new, p_old):
+    return (p_new - p_old) / p_old if p_old > 0 else None
+
+
+def optimize(voltages, active=None, current=None, dead_threshold=DEAD_THRESHOLD):
+    i_ref = current if current is not None else 1.0
     measured = measured_voltages(voltages, active)
     v_best = best_voltage(measured)
-    v_ideal = ideal_voltage(v_best, len(voltages))
     health = compute_health(voltages, measured, v_best)
-    on, v_expected, sweep = best_configuration(rank_nodes(health, dead_threshold), measured)
+    ranked = rank_nodes(health, dead_threshold)
+
+    sweep = sweep_configurations(ranked, measured, health, i_ref)
+    on, p_with = best_configuration(ranked, sweep)
+    known = [n for n, h in health.items() if h is not None]
+    p_without = string_power(known, measured, health, i_ref)
+    p_diode = sweep[-1]["power"]
+    p_ideal = ideal_power(v_best, len(voltages), i_ref)
 
     return {
         "states": {n: int(n in on) for n in voltages},
         "health": health,
         "reference": v_best,
-        "ideal_voltage": v_ideal,
-        "expected_voltage": v_expected,
+        "current": current,
         "mse": compute_mse(measured, v_best),
-        "efficiency": v_expected / v_ideal if v_ideal > 0 else 0.0,
+        "power_with": p_with,
+        "power_without": p_without,
+        "power_diode": p_diode,
+        "power_ideal": p_ideal,
+        "gain": gain(p_with, p_without),
+        "gain_vs_diode": gain(p_with, p_diode),
+        "efficiency": p_with / p_ideal if p_ideal > 0 else 0.0,
         "sweep": sweep,
     }
