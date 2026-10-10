@@ -27,12 +27,24 @@ DT = 0.5
 RAW_CLASSES = ["ok", "shade", "soiling", "obstruction", "debris", "diode", "dead"]
 
 
+MIN_MODULES, MAX_MODULES = 250, 700
+
+
 def random_plant(rng):
+    """Commercial / hospital / neighbourhood rooftops: 250-700 modules."""
+    while True:
+        mps = rng.randint(14, 22)
+        spr = rng.randint(1, 3)
+        rows = round(rng.randint(MIN_MODULES, MAX_MODULES) / (mps * spr))
+        if rows >= 2 and MIN_MODULES <= rows * spr * mps <= MAX_MODULES:
+            break
     return {
-        "rows": rng.randint(3, 20),
-        "strings_per_row": rng.randint(1, 3),
-        "modules_per_string": rng.randint(10, 26),
-        "row_pitch": round(rng.uniform(3.5, 7.0), 2),
+        "rows": rows,
+        "strings_per_row": spr,
+        "modules_per_string": mps,
+        "row_pitch": round(rng.uniform(1.2, 3.5), 2),
+        "blocks": min(rows, rng.choice([1, 1, 2, 3])),
+        "block_gap": round(rng.uniform(6.0, 25.0), 1),
         "noise": round(rng.uniform(0.02, 0.1), 3),
         "tolerance": round(rng.uniform(0.005, 0.015), 4),
     }

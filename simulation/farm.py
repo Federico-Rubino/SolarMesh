@@ -81,19 +81,23 @@ class Cloud:
 class Farm:
     def __init__(self, rows=ROWS, strings_per_row=STRINGS_PER_ROW, seed=0,
                  modules_per_string=MODULES_PER_STRING, row_pitch=ROW_PITCH,
-                 noise=NOISE_V, tolerance=0.0):
+                 noise=NOISE_V, tolerance=0.0, blocks=1, block_gap=8.0):
         self.rng = random.Random(seed)
         self.noise = noise
         self.layout, self.edges, self.strings = {}, [], []
         cols = strings_per_row * modules_per_string
+        rows_per_block = -(-rows // blocks)
         for r in range(rows):
+            block = r // rows_per_block
+            x0 = block * 3.0 * (MODULE_W + MODULE_GAP)
+            y0 = block * block_gap
             for c in range(cols):
                 node = f"m{r * cols + c + 1}"
-                self.layout[node] = (round(c * (MODULE_W + MODULE_GAP), 3), round(r * row_pitch, 3))
+                self.layout[node] = (round(x0 + c * (MODULE_W + MODULE_GAP), 3), round(y0 + r * row_pitch, 3))
                 if c > 0:
                     wired = int(c % modules_per_string != 0)
                     self.edges.append([f"m{r * cols + c}", node, wired])
-                if r > 0:
+                if r % rows_per_block != 0:
                     self.edges.append([f"m{(r - 1) * cols + c + 1}", node, 0])
             for s in range(strings_per_row):
                 base = r * cols + s * modules_per_string
