@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solar Camera</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="camera.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>📷 Solar Camera</h1>
+    <span id="status" class="status offline">offline</span>
+    <div class="mode">
+      <button data-px="2" class="active">2 px · physical</button>
+      <button data-px="4">4 px · interpolated</button>
+    </div>
+    <label class="env"><input type="checkbox" id="levels"> 8 gray levels</label>
+    <span class="env">white = <b id="ref">–</b> V</span>
+    <button id="reset">Reset white</button>
+    <a class="env" href="index.html" id="back">← Dashboard</a>
+  </header>
+
+  <main class="camera">
+    <section class="card">
+      <div class="card-head"><h2>Image</h2><span class="hint" id="caption">each pixel = one panel's voltage</span></div>
+      <canvas id="frame"></canvas>
+      <div id="labels" class="pixel-labels"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Time strip</h2><span class="hint">one row per reading, newest at the bottom</span></div>
+      <canvas id="strip"></canvas>
+    </section>
+  </main>
+
+  <script src="libs/socket.io.min.js"></script>
+  <script src="libs/arduino.js"></script>
+  <script src="camera.js"></script>
+</body>
+</html>

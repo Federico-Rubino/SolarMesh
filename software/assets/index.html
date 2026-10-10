@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SolarMesh</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>☀️ SolarMesh</h1>
+    <span id="status" class="status offline">offline</span>
+    <span class="env">T <b id="temp">–</b> °C</span>
+    <span class="env">I <b id="current">–</b> A</span>
+    <span class="env" id="clock">–</span>
+    <a class="env" href="camera.html" id="camera-link">📷 Solar camera</a>
+  </header>
+
+  <section class="banners">
+    <div class="banner" id="tech-banner">
+      <span class="icon">🔧</span>
+      <div><b id="tech-title">–</b><span id="tech-detail" class="hint"></span></div>
+    </div>
+    <div class="banner" id="cloud-banner">
+      <span class="icon">☁️</span>
+      <div><b id="cloud-title">–</b><span id="cloud-detail" class="hint"></span></div>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><span>Power now</span><b id="k-actual">–</b></div>
+    <div class="kpi"><span>Ideal</span><b id="k-ideal">–</b></div>
+    <div class="kpi"><span>Lost</span><b id="k-lost">–</b></div>
+    <div class="kpi"><span>Efficiency</span><b id="k-eff">–</b></div>
+    <div class="kpi"><span>Modules needing action</span><b id="k-action">–</b></div>
+    <div class="kpi"><span>MSE</span><b id="k-mse">–</b></div>
+  </section>
+
+  <main class="layout">
+    <section class="card twin-card">
+      <div class="card-head">
+        <h2>Digital twin</h2>
+        <div class="metric-select">
+          <button data-metric="diagnosis" class="active">Diagnosis</button>
+          <button data-metric="health">Health</button>
+          <button data-metric="voltage">Voltage</button>
+        </div>
+      </div>
+      <svg id="twin" role="img" aria-label="Solar array digital twin"></svg>
+      <div class="legend" id="twin-legend"></div>
+    </section>
+
+    <aside class="card detail" id="detail">
+      <h2>Module</h2>
+      <p class="hint">Click a module in the twin.</p>
+    </aside>
+
+    <section class="card">
+      <div class="card-head"><h2>Power</h2><span class="hint">actual vs ideal</span></div>
+      <svg id="power" class="chart"></svg>
+      <div class="legend" id="power-legend"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Diagnosis summary</h2><span class="hint">modules and power lost</span></div>
+      <table id="summary"></table>
+    </section>
+
+    <section class="card alerts-card">
+      <div class="card-head"><h2>Alerts</h2></div>
+      <ul id="alerts"><li class="ok">No alerts</li></ul>
+    </section>
+  </main>
+
+  <script src="libs/socket.io.min.js"></script>
+  <script src="libs/arduino.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

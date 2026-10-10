@@ -48,9 +48,10 @@ def ideal_power(v_best, n_nodes, current):
 
 def sweep_configurations(ranked, measured, health, current):
     sweep = [{"k": 0, "node": None, "power": 0.0}]
-    for k in range(1, len(ranked) + 1):
-        power = string_power(ranked[:k], measured, health, current)
-        sweep.append({"k": k, "node": ranked[k - 1], "power": power})
+    v_sum = 0.0
+    for k, node in enumerate(ranked, start=1):
+        v_sum += measured[node]
+        sweep.append({"k": k, "node": node, "power": current * health[node] * v_sum})
     return sweep
 
 

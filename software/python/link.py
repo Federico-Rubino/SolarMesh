@@ -70,12 +70,9 @@ def parse_mesh(raw):
         "temp": float(mesh.get("temp", 0.0)),
         "current": float(current) if current is not None else None,
         "edges": [parse_edge(e) for e in mesh.get("edges", [])],
+        "layout": {n: (float(p[0]), float(p[1])) for n, p in mesh.get("layout", {}).items()},
     }
 
 
 def get_mesh():
     return parse_mesh(call("get_mesh"))
-
-
-def set_nodes(states):
-    return call("set_nodes", json.dumps(states))

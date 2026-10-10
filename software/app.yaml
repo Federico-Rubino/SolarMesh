@@ -1,0 +1,5 @@
+name: SolarMesh
+icon: ☀️
+description: Digital twin and bypass optimizer for a modular solar array.
+bricks:
+  - arduino:web_ui
