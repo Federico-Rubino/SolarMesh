@@ -17,6 +17,7 @@
   --d-obstruction: #e07b28;
   --d-fault: #d64545;
   --d-dead: #7a1f1f;
+  --d-debris: #9b59b6;
   --d-unknown: #b7bec7;
 }
 
@@ -65,6 +66,8 @@ button.active { background: var(--text); color: var(--card); border-color: var(-
   background: var(--card);
   border-bottom: 1px solid var(--line);
 }
+.mode { display: flex; gap: 4px; }
+.mode button:disabled { opacity: .45; cursor: not-allowed; }
 .env { color: var(--muted); }
 .env b { color: var(--text); }
 #clock { margin-left: auto; font-variant-numeric: tabular-nums; }

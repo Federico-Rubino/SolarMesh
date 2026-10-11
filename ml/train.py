@@ -1,9 +1,3 @@
-"""Train the SolarMesh recurrent graph models on synthetic episodes.
-
-Usage:  python train.py --data data --epochs 30                 # fast model (0.5 s frames)
-        python train.py --kind slow --data daily --epochs 30    # slow model (1 frame per day)
-Output: checkpoints/gnn.pt or checkpoints/gnn_slow.pt (best validation macro-F1).
-"""
 
 import argparse
 import random

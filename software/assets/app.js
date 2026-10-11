@@ -6,6 +6,7 @@ const HISTORY = 120;
 const PARAMS = new URLSearchParams(location.search);
 const DEMO = PARAMS.has('demo');
 const SOURCE = PARAMS.get('source');
+const AI_ONLY = !!window.AI_ONLY;   // set by the farm-sim app: show the AI diagnosis only
 
 const DIAGNOSES = {
   ok: { label: 'OK', color: 'var(--d-ok)', icon: '' },
@@ -14,6 +15,7 @@ const DIAGNOSES = {
   obstruction: { label: 'Obstruction', color: 'var(--d-obstruction)', icon: '🔍' },
   fault: { label: 'Fault', color: 'var(--d-fault)', icon: '🔧' },
   dead: { label: 'Dead', color: 'var(--d-dead)', icon: '🔧' },
+  debris_or_diode: { label: 'Debris / diode', color: 'var(--d-debris)', icon: '🔍' },
   unknown: { label: 'Unknown', color: 'var(--d-unknown)', icon: '?' },
 };
 
@@ -27,9 +29,11 @@ const ACTIONS = {
 const state = {
   twin: null,
   metric: 'diagnosis',
+  source: AI_ONLY ? 'ai' : 'rules',
   selected: null,
   history: [],
   panelHistory: {},
+  lastArrow: null,
 };
 
 // ---------- helpers ----------
@@ -50,7 +54,10 @@ const fmt = {
   secs: v => (v == null ? '–' : `${v.toFixed(1)} s`),
 };
 
-const diag = p => DIAGNOSES[p.diagnosis] || DIAGNOSES.unknown;
+const useAi = p => state.source === 'ai' && p.ai_diagnosis != null;
+const dkey = p => (useAi(p) ? p.ai_diagnosis : p.diagnosis);
+const act = p => (useAi(p) ? p.ai_action : p.action);
+const diag = p => DIAGNOSES[dkey(p)] || DIAGNOSES.unknown;
 
 function healthColor(h) {
   if (h == null) return 'var(--unknown)';
@@ -132,6 +139,7 @@ function renderTwin(t) {
   const width = svg.clientWidth || 800;
   svg.style.height = `${Math.min(Math.max(width * (vbH / vbW), 220), 720)}px`;
   const level = detailLevel(svg, vbW, vbH);
+  geo.px = 1 / Math.min(svg.clientWidth / vbW, svg.clientHeight / vbH);   // viewBox units per screen pixel
 
   const defs = svgEl('defs', {}, svg);
   const marker = svgEl('marker', {
@@ -159,7 +167,11 @@ function renderTwin(t) {
     }, svg);
     const body = svgEl('rect', { class: 'body', width: PANEL_W, height: PANEL_H, rx: 6 }, g);
     body.style.fill = panelColor(p, ref);
-    if (p.eta != null) svgEl('rect', { class: 'eta-ring', x: -4, y: -4, width: PANEL_W + 8, height: PANEL_H + 8, rx: 9 }, g);
+    if (p.eta != null) {
+      const ring = svgEl('rect', { class: 'eta-ring', x: -4, y: -4, width: PANEL_W + 8, height: PANEL_H + 8, rx: 9 }, g);
+      ring.style.strokeWidth = Math.max(3, 3 * geo.px);
+      ring.style.strokeDasharray = `${6 * geo.px} ${4 * geo.px}`;
+    }
 
     if (level === 'full') {
       svgEl('text', { x: 8, y: 18 }, g).textContent = p.id;
@@ -168,7 +180,7 @@ function renderTwin(t) {
       if (p.eta != null) {
         svgEl('text', { x: PANEL_W / 2, y: PANEL_H - 8, 'text-anchor': 'middle', class: 'eta' }, g).textContent = `☁ in ${p.eta.toFixed(1)} s`;
       }
-    } else if (level === 'medium' && diag(p).icon && p.diagnosis !== 'shade') {
+    } else if (level === 'medium' && diag(p).icon && dkey(p) !== 'shade') {
       svgEl('text', { x: PANEL_W / 2, y: PANEL_H / 2 + 14, 'text-anchor': 'middle', class: 'icon', style: 'font-size:40px' }, g).textContent = diag(p).icon;
     }
 
@@ -181,20 +193,25 @@ function renderTwin(t) {
   renderCloudArrow(svg, t);
 }
 
+const ARROW_HOLD_MS = 10000;   // keep the last arrow visible after the cloud has passed
+
 function renderCloudArrow(svg, t) {
   const c = t.cloud;
-  if (!c || !c.active || !c.velocity) return;
-  const shaded = t.panels.filter(p => p.diagnosis === 'shade');
-  if (!shaded.length) return;
-
-  const cx = shaded.reduce((s, p) => s + center(p)[0], 0) / shaded.length;
-  const cy = shaded.reduce((s, p) => s + center(p)[1], 0) / shaded.length;
-  const [vx, vy] = c.velocity;
-  const norm = Math.hypot(vx, vy) || 1;
-  const len = (PANEL_W + GAP) * Math.max(1, Math.max(geo.spanX, geo.spanY) / 5);
-  const x2 = cx + (vx / norm) * len;
-  const y2 = cy + (vy / norm) * len;
-  svgEl('line', { x1: cx, y1: cy, x2, y2, class: 'cloud-arrow', 'marker-end': 'url(#arrow-head)' }, svg);
+  if (c && c.active && c.velocity) {
+    const shaded = t.panels.filter(p => p.diagnosis === 'shade');
+    const pts = (shaded.length ? shaded : t.panels).map(center);
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    const [vx, vy] = c.velocity;
+    const norm = Math.hypot(vx, vy) || 1;
+    const len = (PANEL_W + GAP) * Math.max(1, Math.max(geo.spanX, geo.spanY) / 5);
+    state.lastArrow = { cx, cy, x2: cx + (vx / norm) * len, y2: cy + (vy / norm) * len, until: Date.now() + ARROW_HOLD_MS };
+  }
+  const a = state.lastArrow;
+  if (!a || Date.now() > a.until) return;
+  const line = svgEl('line', { x1: a.cx, y1: a.cy, x2: a.x2, y2: a.y2, class: 'cloud-arrow', 'marker-end': 'url(#arrow-head)' }, svg);
+  line.style.strokeWidth = Math.max(6, 6 * geo.px);
+  line.style.opacity = c && c.active ? 0.85 : 0.4;
 }
 
 function renderLegend() {
@@ -212,17 +229,18 @@ function renderLegend() {
 // ---------- banners & KPIs ----------
 
 function renderBanners(t) {
-  const tech = t.technician;
+  const ai = state.source === 'ai' && t.ai && t.ai.enabled;
+  const tech = ai ? { needed: t.ai.technician.length > 0, modules: t.ai.technician } : t.technician;
   const techBanner = $('tech-banner');
   if (tech.needed) {
     techBanner.className = 'banner alert';
-    $('tech-title').textContent = `Technician needed: ${tech.modules.join(', ')}`;
+    $('tech-title').textContent = `${ai ? 'AI: ' : ''}Technician needed: ${tech.modules.join(', ')}`;
     const lost = t.panels.filter(p => tech.modules.includes(p.id)).reduce((s, p) => s + (p.loss_w || 0), 0);
     $('tech-detail').textContent = `~${lost.toFixed(2)} W lost until repaired`;
   } else {
-    const other = t.panels.filter(p => p.action === 'clean' || p.action === 'inspect');
+    const other = t.panels.filter(p => act(p) === 'clean' || act(p) === 'inspect');
     techBanner.className = other.length ? 'banner warn' : 'banner ok';
-    $('tech-title').textContent = 'No technician needed';
+    $('tech-title').textContent = `${ai ? 'AI: ' : ''}No technician needed`;
     $('tech-detail').textContent = other.length
       ? `${other.length} module(s) need cleaning or inspection`
       : 'Drops are temporary (clouds) or absent';
@@ -252,7 +270,7 @@ function renderKpis(t) {
   $('k-ideal').textContent = fmt.watt(m.power_ideal);
   $('k-lost').textContent = fmt.watt(m.power_lost);
   $('k-eff').textContent = fmt.pct(m.efficiency);
-  $('k-action').textContent = t.panels.filter(p => p.action !== 'none').length;
+  $('k-action').textContent = t.panels.filter(p => act(p) !== 'none').length;
   $('k-mse').textContent = m.mse.toFixed(3);
   $('temp').textContent = t.temp == null ? '–' : t.temp.toFixed(1);
   $('current').textContent = t.current == null ? '–' : t.current.toFixed(2);
@@ -312,7 +330,7 @@ function renderPowerLegend() {
 function renderSummary(t) {
   const rows = Object.entries(DIAGNOSES)
     .map(([key, d]) => {
-      const ps = t.panels.filter(p => p.diagnosis === key);
+      const ps = t.panels.filter(p => dkey(p) === key);
       return { d, count: ps.length, lost: ps.reduce((s, p) => s + (p.loss_w || 0), 0) };
     })
     .filter(r => r.count > 0);
@@ -353,8 +371,9 @@ function renderDetail(t) {
     <h2>Module ${p.id}</h2>
     <p><span class="tag" style="background:${d.color}">${d.icon} ${d.label}</span></p>
     <dl>
-      <dt>Action</dt><dd><b>${ACTIONS[p.action] || p.action}</b></dd>
-      <dt>Since</dt><dd>${p.diagnosis === 'ok' ? '–' : fmt.secs(p.age)}</dd>
+      <dt>Action</dt><dd><b>${ACTIONS[act(p)] || act(p)}</b></dd>
+      ${AI_ONLY ? '' : `<dt>Rules</dt><dd>${(DIAGNOSES[p.diagnosis] || DIAGNOSES.unknown).label}${p.diagnosis === 'ok' ? '' : ' · ' + fmt.secs(p.age)}</dd>`}
+      <dt>AI</dt><dd>${p.ai_diagnosis ? `${(DIAGNOSES[p.ai_diagnosis] || DIAGNOSES.unknown).label} (${Math.round(p.ai_confidence * 100)}%)` : 'off'}</dd>
       <dt>Voltage</dt><dd>${fmt.volt(p.voltage)}</dd>
       <dt>Health</dt><dd>${fmt.pct(p.health)}</dd>
       <dt>Power lost</dt><dd>${fmt.watt(p.loss_w)}</dd>
@@ -368,8 +387,16 @@ function renderDetail(t) {
 
 // ---------- alerts ----------
 
+function aiAlerts(t) {
+  const notModule = (t.alerts || []).filter(a => !/^\S+: \w+ for \d+ s →/.test(a));
+  const modules = t.panels
+    .filter(p => p.ai_action && p.ai_action !== 'none')
+    .map(p => `${p.id}: ${(DIAGNOSES[p.ai_diagnosis] || DIAGNOSES.unknown).label} (${Math.round(p.ai_confidence * 100)}%) → ${ACTIONS[p.ai_action].toLowerCase()}`);
+  return [...notModule, ...modules];
+}
+
 function renderAlerts(t) {
-  const alerts = t.alerts || [];
+  const alerts = AI_ONLY ? aiAlerts(t) : t.alerts || [];
   $('alerts').innerHTML = alerts.length
     ? alerts.map(a => `<li class="warn">${a}</li>`).join('')
     : '<li class="ok">No alerts</li>';
@@ -402,8 +429,30 @@ function render() {
 function update(twin) {
   if (!twin || !twin.panels) return;
   state.twin = twin;
+  const aiOn = !!(twin.ai && twin.ai.enabled);
+  document.querySelector('[data-source="ai"]').disabled = !aiOn;
+  if (!aiOn && state.source === 'ai' && !AI_ONLY) setSource('rules');
+  $('ai-info').textContent = aiOn
+    ? `AI ${twin.ai.inference_ms} ms · val F1 ${twin.ai.model && twin.ai.model.val_macro_f1 != null ? twin.ai.model.val_macro_f1.toFixed(2) : '–'}`
+    : 'AI off';
   record(twin);
   render();
+}
+
+function setSource(source) {
+  state.source = source;
+  document.querySelectorAll('[data-source]').forEach(b => b.classList.toggle('active', b.dataset.source === source));
+  render();
+}
+
+document.querySelectorAll('[data-source]').forEach(b => b.addEventListener('click', () => setSource(b.dataset.source)));
+if (AI_ONLY) {
+  document.querySelector('[data-source]').parentElement.style.display = 'none';
+  const link = document.createElement('a');
+  link.className = 'env';
+  link.href = 'sim.html';
+  link.textContent = '🎛 Simulation controls';
+  document.querySelector('.bar').appendChild(link);
 }
 
 function setStatus(text) {

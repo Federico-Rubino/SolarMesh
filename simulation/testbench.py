@@ -1,9 +1,4 @@
-"""Final testbench: the REAL SolarMesh software (../software/python) against a
-realistic 1 MWp farm (farm.py), with ground truth for every module and step.
-
-Usage:  python3 testbench.py [--workers 4] [--duration 600] [--quick]
-Output: results/testbench.json and results/TESTBENCH.md
-"""
+"""Final testbench: the real SolarMesh software against a realistic 1 MWp farm."""
 
 import argparse
 import json

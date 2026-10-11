@@ -1,23 +1,4 @@
-"""Daily synthetic data for the SolarMesh SLOW model (days -> weeks).
-
-One frame = one day with HOURS readings (9:00-16:00) of every module voltage plus
-the plant current. Same rooftop plants and electrical physics as farm.py
-(bypass diodes, per-string MPPT); slow phenomena are simulated on top:
-
-  soiling           per-module rates 0.05-1 %/day, patterns: uniform dust, roof edge,
-                    bird droppings; rain washes 70-100 % off
-  degradation       normal 0.3-1 %/yr + fast-degrading (PID-like, 10-40 %/yr) modules at a string end
-  recurring shade   fixed obstacle shading a patch for 2-3 h every day, moving with the sun
-  faults            diode short / dead module appearing on some day
-
-Pure Python. Output per episode in --out:
-  day_XXXXX.json          topology + metadata
-  day_XXXXX.volts.f32     float32 [days x HOURS x nodes]
-  day_XXXXX.current.f32   float32 [days x HOURS]  plant mean string current
-  day_XXXXX.labels.u8     uint8   [days x nodes]  index into SLOW_RAW_CLASSES
-
-Usage:  python3 daily.py --episodes 1500 --out ../ml/daily [--days 120 --workers 8]
-"""
+"""Daily synthetic data for the SolarMesh SLOW model (days -> weeks)."""
 
 import argparse
 import json

@@ -1,9 +1,4 @@
-"""Live simulation: drive the REAL SolarMesh twin with a simulated plant and
-serve the real GUI (../software/assets) with it.
-
-Usage:  python3 live.py [--cols 25 --rows 20 --port 8080 --speedup 1]
-Open:   http://<board-ip>:8080/?source=/twin.json
-"""
+"""Live simulation: drives the real SolarMesh twin with a simulated plant and serves the GUI."""
 
 import argparse
 import json

@@ -1,18 +1,4 @@
-"""Realistic 1 MWp fixed-tilt PV farm for benchmarking SolarMesh.
-
-Simulation-only: never imported by the real app in ../software/python.
-
-Physics, per module:
-  - 550 W module, 3 bypass-diode substrings of 24 cells (single-diode model per substring)
-  - strings of 26 modules in series; each string's inverter MPPT picks the
-    current that maximises string power, so weak substrings get bypassed
-    (their voltage goes to about -0.7 V) - this is how shading really shows up
-    in per-module voltage
-  - cloud shadows with sharp edges, partial transmittance and edge brightening
-  - events: bypass-diode short, dead module, debris, static obstruction, soiling
-
-Units: metres, seconds, volts, amps. Parameters and sources: ../docs/simulation-model.md
-"""
+"""Realistic 1 MWp fixed-tilt PV farm for benchmarking SolarMesh."""
 
 import json
 import math

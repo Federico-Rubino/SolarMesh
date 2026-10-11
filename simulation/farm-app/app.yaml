@@ -1,0 +1,5 @@
+name: SolarMesh Farm Sim
+icon: 🏭
+description: SolarMesh twin fed by a 280-module rooftop simulated on the STM32 (simulation only).
+bricks:
+  - arduino:web_ui

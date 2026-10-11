@@ -1,12 +1,23 @@
 import math
 import time
+from pathlib import Path
 
 import diagnosis
 import radar
 import topology
 from optimizer import optimize
 
+try:
+    import gnn
+except ImportError:  # numpy missing (e.g. host Python): run with rules only
+    gnn = None
+
 PITCH_M = 1.0
+MODEL_PATH = Path(__file__).resolve().parent / "models" / "gnn.pt"
+AI_ACTIONS = {
+    "ok": "none", "shade": "none", "soiling": "clean", "obstruction": "inspect",
+    "debris_or_diode": "inspect", "dead": "technician",
+}
 
 ALERT_TEXT = {
     "technician": "send technician",
@@ -67,7 +78,29 @@ def analyse_topology(twin, mesh):
             "neighbours": {n: topology.neighbours(graph, n) for n in graph.nodes},
             "dict": topology.to_dict(graph),
         }
+        twin["topology"]["model"] = build_model(mesh, twin["topology"])
     return twin["topology"]
+
+
+def build_model(mesh, topo):
+    if gnn is None or not MODEL_PATH.exists():
+        return None
+    try:
+        return gnn.FastModel(MODEL_PATH, list(topo["graph"].nodes), topo["positions"],
+                             mesh["edges"], topo["dict"]["strings"])
+    except Exception as e:  # a bad model file must not stop the twin
+        print(f"AI model not loaded: {e}", flush=True)
+        return None
+
+
+def run_model(model, mesh):
+    if model is None:
+        return {}, None
+    nodes = list(model.nodes)
+    tick = time.perf_counter()
+    cls, probs = model.step([mesh["nodes"].get(n, 0.0) for n in nodes])
+    ms = (time.perf_counter() - tick) * 1000
+    return {n: (model.classes[c], float(probs[i, c])) for i, (n, c) in enumerate(zip(nodes, cls))}, ms
 
 
 def update(twin, mesh, now):
@@ -83,6 +116,7 @@ def update(twin, mesh, now):
 
     neighbours = topo["neighbours"]
     diag = diagnosis.diagnose(twin["trackers"], health, neighbours, now)
+    ai, ai_ms = run_model(topo["model"], mesh)
     cloud = radar.track(twin["trackers"], pos, now, PITCH_M, topo["dict"]["strings"])
     ages = {n: (now - d["since"]) if d["since"] is not None else 0.0 for n, d in diag.items()}
 
@@ -101,24 +135,39 @@ def update(twin, mesh, now):
             "age": round(ages.get(node, 0.0), 1),
             "eta": cloud["eta"].get(node),
             "loss_w": current * max(v_best - v, 0.0) if v is not None else None,
+            "ai_diagnosis": ai[node][0] if node in ai else None,
+            "ai_action": AI_ACTIONS.get(ai[node][0]) if node in ai else None,
+            "ai_confidence": round(ai[node][1], 3) if node in ai else None,
         })
 
     technicians = diagnosis.technician_needed(diag)
+    # Every module's voltage is measured under load and bypassed modules don't
+    # stop their string, so plant power = current x sum of module voltages.
+    p_actual = current * sum(mesh["nodes"].values())
     return {
         "time": time.time() * 1000,
         "temp": mesh["temp"],
         "current": mesh["current"],
+        "cleaner": mesh.get("cleaner"),
+        "sim": mesh.get("sim"),
+        "sim_time": mesh.get("time"),
         "panels": panels,
         "graph": topo["dict"],
         "metrics": {
             "reference": v_best,
             "mse": result["mse"],
-            "power_actual": result["power_without"],
+            "power_actual": p_actual,
             "power_ideal": result["power_ideal"],
-            "power_lost": result["power_ideal"] - result["power_without"],
-            "efficiency": result["power_without"] / result["power_ideal"] if result["power_ideal"] > 0 else 0.0,
+            "power_lost": result["power_ideal"] - p_actual,
+            "efficiency": p_actual / result["power_ideal"] if result["power_ideal"] > 0 else 0.0,
         },
         "technician": {"needed": bool(technicians), "modules": technicians},
+        "ai": {
+            "enabled": topo["model"] is not None,
+            "technician": sorted(n for n, (c, _) in ai.items() if AI_ACTIONS[c] == "technician"),
+            "inference_ms": round(ai_ms, 1) if ai_ms is not None else None,
+            "model": {k: topo["model"].meta.get(k) for k in ("epoch", "val_macro_f1")} if topo["model"] else None,
+        },
         "cloud": cloud,
         "alerts": twin["issues"] + cloud_alert(cloud) + module_alerts(diag, ages),
     }

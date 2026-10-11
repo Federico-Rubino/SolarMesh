@@ -1,11 +1,4 @@
-"""Synthetic SolarMesh plant. Produces the same get_mesh JSON the STM32 sends.
-
-Simulation-only: never imported by the real app in ../software/python.
-Units: 1 grid cell = 1 m, time in seconds.
-Assumption: module voltage scales linearly with the light it receives
-(the same proxy the optimizer uses). Real open-circuit voltage drops far
-less with shade, so check what the STM32 actually measures.
-"""
+"""Synthetic SolarMesh plant. Produces the same get_mesh JSON the STM32 sends."""
 
 import json
 import math

@@ -1,7 +1,4 @@
-"""Run the REAL SolarMesh twin (../software/python) against simulated clouds and score it.
-
-Usage:  python3 run_clouds.py [--cols 25 --rows 20 --scenarios 12 --seed 1]
-"""
+"""Run the REAL SolarMesh twin (../software/python) against simulated clouds and score it."""
 
 import argparse
 import json

@@ -1,0 +1,53 @@
+.clean {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.controls h2 { margin: 14px 0 6px; }
+.controls h2:first-child { margin-top: 0; }
+
+.choice { display: flex; flex-wrap: wrap; gap: 6px; }
+.choice button:disabled { opacity: .45; cursor: not-allowed; }
+
+.freq { display: flex; align-items: center; gap: 8px; }
+.freq input[type=range] { flex: 1; }
+.freq input[type=number] {
+  width: 90px;
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.actions { display: flex; gap: 8px; margin-top: 18px; }
+.actions button { flex: 1; padding: 10px; font-size: 16px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #10151b; font-weight: 600; }
+button.primary:disabled { opacity: .5; }
+
+.now { font-size: 14px; color: var(--muted); }
+.now b { font-size: 40px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.chart .vibe { fill: var(--accent); opacity: .25; }
+.chart .line { fill: none; stroke: var(--wired); stroke-width: 2; }
+
+.result {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+.result b { font-size: 18px; }
+.result .up { color: var(--good); }
+.result .down { color: var(--bad); }
+
+#state.on { color: var(--accent); font-weight: 600; }
+#back { margin-left: auto; color: var(--text); }
+
+@media (max-width: 800px) {
+  .clean { grid-template-columns: 1fr; }
+}

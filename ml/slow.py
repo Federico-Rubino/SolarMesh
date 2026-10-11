@@ -1,9 +1,3 @@
-"""SLOW model (days -> weeks): daily features and classes.
-
-Same graph-GRU as the fast model (model.SolarMeshGNN), stepped once per day.
-Per day each module has HOURS voltage readings; the plant also reports its
-mean string current, which is what makes uniform soiling visible.
-"""
 
 import torch
 

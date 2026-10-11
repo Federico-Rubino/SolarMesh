@@ -1,16 +1,4 @@
-"""Synthetic training data for the SolarMesh graph model (sequence of graphs).
-
-Each episode = one randomised plant (size, strings, row pitch, noise, module
-tolerance) under random weather (cumulus, overcast, clear) with random events
-(diode short, dead module, debris, obstruction, soiling), sampled every DT s.
-
-Pure Python (runs on the board). Output per episode in --out:
-  ep_XXXXX.json        topology + metadata
-  ep_XXXXX.volts.f32   float32 [frames x nodes] module voltages (what the STM32 sends)
-  ep_XXXXX.labels.u8   uint8   [frames x nodes] ground truth, index into RAW_CLASSES
-
-Usage:  python3 dataset.py --episodes 200 --out ../ml/data [--duration 300 --workers 4]
-"""
+"""Synthetic training data for the SolarMesh graph model (sequence of graphs)."""
 
 import argparse
 import json

@@ -10,10 +10,16 @@
   <header class="bar">
     <h1>☀️ SolarMesh</h1>
     <span id="status" class="status offline">offline</span>
+    <div class="mode">
+      <button data-source="rules" class="active">Rules</button>
+      <button data-source="ai" disabled>AI</button>
+    </div>
+    <span class="env" id="ai-info">AI off</span>
     <span class="env">T <b id="temp">–</b> °C</span>
     <span class="env">I <b id="current">–</b> A</span>
     <span class="env" id="clock">–</span>
     <a class="env" href="camera.html" id="camera-link">📷 Solar camera</a>
+    <a class="env" href="clean.html">🧽 Motor cleaning</a>
   </header>
 
   <section class="banners">

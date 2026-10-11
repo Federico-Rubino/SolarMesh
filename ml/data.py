@@ -1,8 +1,3 @@
-"""Load episodes written by simulation/dataset.py and sample training windows.
-
-Episodes are read on demand: only the frames of a requested window are loaded
-and no file stays open, so thousands of episodes work without RAM or file-handle limits.
-"""
 
 import json
 import random

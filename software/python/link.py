@@ -1,11 +1,12 @@
 import itertools
 import json
 import socket
+import threading
 
 import msgpack
 
 SOCKET_PATH = "/var/run/arduino-router.sock"
-TIMEOUT = 2.0
+TIMEOUT = 10.0
 
 REQUEST = 0
 RESPONSE = 1
@@ -13,6 +14,7 @@ RESPONSE = 1
 _ids = itertools.count()
 _sock = None
 _unpacker = None
+_lock = threading.Lock()
 
 
 def connect(path=SOCKET_PATH):
@@ -42,15 +44,16 @@ def wait_response(msgid):
 
 
 def call(method, *args):
-    if _sock is None:
-        connect()
-    msgid = next(_ids) & 0xFFFFFFFF
-    try:
-        _sock.sendall(msgpack.packb([REQUEST, msgid, method, list(args)]))
-        _, _, error, result = wait_response(msgid)
-    except (OSError, ValueError):
-        disconnect()
-        raise
+    with _lock:
+        if _sock is None:
+            connect()
+        msgid = next(_ids) & 0xFFFFFFFF
+        try:
+            _sock.sendall(msgpack.packb([REQUEST, msgid, method, list(args)]))
+            _, _, error, result = wait_response(msgid)
+        except (OSError, ValueError):
+            disconnect()
+            raise
     if error is not None:
         raise RuntimeError(f"{method}: {error}")
     return result
@@ -71,8 +74,19 @@ def parse_mesh(raw):
         "current": float(current) if current is not None else None,
         "edges": [parse_edge(e) for e in mesh.get("edges", [])],
         "layout": {n: (float(p[0]), float(p[1])) for n, p in mesh.get("layout", {}).items()},
+        "cleaner": mesh.get("cleaner"),
+        "time": float(mesh["time"]) if "time" in mesh else None,
+        "sim": mesh.get("sim"),
     }
 
 
 def get_mesh():
     return parse_mesh(call("get_mesh"))
+
+
+def clean(ms):
+    return call("clean", int(ms))
+
+
+def stop_clean():
+    return call("stop_clean")

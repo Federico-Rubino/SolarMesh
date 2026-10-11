@@ -1,15 +1,4 @@
-"""SolarMesh spatio-temporal graph model (architecture D: recurrent graph GRU).
-
-Input:  a sequence of graphs with a fixed topology. Nodes = modules, node value =
-        module voltage per frame. Two edge types:
-          - geometric: physically adjacent modules, with (dx, dy, distance) attributes
-          - electrical: modules in the same series string (fully connected per string,
-            computed as "mean of the other modules in my string", no extra nodes)
-Output: per module, per frame, one of CLASSES.
-
-Streaming: `step()` updates one hidden state per module per reading, so inference
-cost per 0.5 s cycle is constant (no window stored).
-"""
+"""SolarMesh spatio-temporal graph model (architecture D: recurrent graph GRU)."""
 
 import torch
 import torch.nn as nn

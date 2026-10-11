@@ -1,4 +1,3 @@
-"""Load daily episodes written by simulation/daily.py (same interface as data.Episode)."""
 
 import json
 from pathlib import Path
