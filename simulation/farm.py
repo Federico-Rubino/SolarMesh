@@ -182,7 +182,7 @@ class Farm:
             iph, shorted, light = self.substrings(node, t)
             subs.append((iph, shorted))
             lights.append(light)
-        temp = T_AMBIENT + (NOCT - 20.0) / 800.0 * G_CLEAR * (sum(lights) / len(lights))
+        temp = getattr(self, "t_ambient", T_AMBIENT) + (NOCT - 20.0) / 800.0 * G_CLEAR * (sum(lights) / len(lights))
 
         levels = sorted({round(i, 2) for iph, sh in subs for i, s in zip(iph, sh) if not s and i > 0})
         best_i, best_p = 0.0, -1.0

@@ -1,7 +1,7 @@
 """Load episodes written by simulation/dataset.py and sample training windows.
 
-Episodes are memory-mapped: only the frames of a requested window are read,
-so thousands of episodes fit on disk without being held in RAM.
+Episodes are read on demand: only the frames of a requested window are loaded
+and no file stays open, so thousands of episodes work without RAM or file-handle limits.
 """
 
 import json
@@ -21,11 +21,18 @@ class Episode:
         meta_path = Path(meta_path)
         self.meta = json.loads(meta_path.read_text())
         stem = str(meta_path.with_suffix(""))
+        self.volts_path, self.labels_path = f"{stem}.volts.f32", f"{stem}.labels.u8"
         self.nodes, self.frames = len(self.meta["nodes"]), self.meta["frames"]
-        shape = (self.frames, self.nodes)
-        self.volts = np.memmap(f"{stem}.volts.f32", dtype="<f4", mode="r", shape=shape)
-        self.raw = np.memmap(f"{stem}.labels.u8", dtype=np.uint8, mode="r", shape=shape)
         self._graph = None
+
+    def read_volts(self, end):
+        data = np.fromfile(self.volts_path, dtype="<f4", count=end * self.nodes)
+        return data.reshape(end, self.nodes)
+
+    def read_labels(self, start, end):
+        data = np.fromfile(self.labels_path, dtype=np.uint8, count=(end - start) * self.nodes,
+                           offset=start * self.nodes)
+        return data.reshape(end - start, self.nodes)
 
     @property
     def graph(self):
@@ -36,13 +43,13 @@ class Episode:
     def window(self, start, length):
         """Features computed from frame 0 (as in streaming), returned for [start, start+length)."""
         end = start + length
-        volts = torch.from_numpy(np.array(self.volts[:end]))
+        volts = torch.from_numpy(self.read_volts(end))
         feats, _ = sequence_features(volts, self.graph)
-        labels = torch.from_numpy(RAW_MAP[self.raw[start:end]])
+        labels = torch.from_numpy(RAW_MAP[self.read_labels(start, end)])
         return feats[start:end], labels
 
     def class_counts(self, n_classes):
-        return np.bincount(RAW_MAP[np.asarray(self.raw)].ravel(), minlength=n_classes)
+        return np.bincount(RAW_MAP[self.read_labels(0, self.frames)].ravel(), minlength=n_classes)
 
 
 def load_episodes(folder):

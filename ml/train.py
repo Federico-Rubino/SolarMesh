@@ -1,7 +1,8 @@
-"""Train the SolarMesh recurrent graph model on synthetic episodes.
+"""Train the SolarMesh recurrent graph models on synthetic episodes.
 
-Usage:  python train.py --data data --epochs 30
-Output: checkpoints/gnn.pt (best validation macro-F1) + printed confusion matrix.
+Usage:  python train.py --data data --epochs 30                 # fast model (0.5 s frames)
+        python train.py --kind slow --data daily --epochs 30    # slow model (1 frame per day)
+Output: checkpoints/gnn.pt or checkpoints/gnn_slow.pt (best validation macro-F1).
 """
 
 import argparse
@@ -12,8 +13,21 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from data import batch, class_counts, load_episodes, split
-from model import ACTIONS, CLASSES, Graph, SolarMeshGNN
+import data
+import data_slow
+from data import batch, class_counts, split
+from model import ACTIONS as FAST_ACTIONS
+from model import CLASSES as FAST_CLASSES
+from model import N_FEATURES, Graph, SolarMeshGNN
+from slow import N_SLOW_FEATURES, SLOW_ACTIONS, SLOW_CLASSES
+
+KINDS = {
+    "fast": {"classes": FAST_CLASSES, "actions": FAST_ACTIONS, "features": N_FEATURES,
+             "load": data.load_episodes, "window": 160, "burn_in": 40, "out": "checkpoints/gnn.pt"},
+    "slow": {"classes": SLOW_CLASSES, "actions": SLOW_ACTIONS, "features": N_SLOW_FEATURES,
+             "load": data_slow.load_episodes, "window": 60, "burn_in": 14, "out": "checkpoints/gnn_slow.pt"},
+}
+CLASSES, ACTIONS = FAST_CLASSES, FAST_ACTIONS
 
 
 def device_auto():
@@ -58,22 +72,30 @@ def report(conf):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--kind", choices=list(KINDS), default="fast")
     ap.add_argument("--data", default="data")
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--steps", type=int, default=100, help="optimizer steps per epoch")
     ap.add_argument("--batch", type=int, default=4, help="episodes per step")
-    ap.add_argument("--window", type=int, default=160, help="frames per window (0.5 s each)")
-    ap.add_argument("--burn-in", type=int, default=40, help="frames without loss at window start")
+    ap.add_argument("--window", type=int, default=None, help="frames per window (fast: 160 x 0.5 s, slow: 60 days)")
+    ap.add_argument("--burn-in", type=int, default=None, help="frames without loss at window start (fast 40, slow 14)")
     ap.add_argument("--hidden", type=int, default=32)
     ap.add_argument("--lr", type=float, default=2e-3)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="checkpoints/gnn.pt")
+    ap.add_argument("--out", default=None)
     args = ap.parse_args()
+
+    global CLASSES, ACTIONS
+    kind = KINDS[args.kind]
+    CLASSES, ACTIONS = kind["classes"], kind["actions"]
+    args.window = args.window or kind["window"]
+    args.burn_in = args.burn_in if args.burn_in is not None else kind["burn_in"]
+    args.out = args.out or kind["out"]
 
     torch.manual_seed(args.seed)
     rng = random.Random(args.seed)
     device = device_auto()
-    episodes = load_episodes(args.data)
+    episodes = kind["load"](args.data)
     train_eps, val_eps = split(episodes)
     print(f"{len(train_eps)} train / {len(val_eps)} val episodes, device {device}", flush=True)
 
@@ -82,7 +104,7 @@ def main():
     weights = (weights / weights.mean()).to(device)
     print("class frames:", {c: int(n) for c, n in zip(CLASSES, counts)}, flush=True)
 
-    model = SolarMeshGNN(hidden=args.hidden).to(device)
+    model = SolarMeshGNN(hidden=args.hidden, n_features=kind["features"], n_classes=len(CLASSES)).to(device)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs)
     best = -1.0
@@ -110,7 +132,7 @@ def main():
         print(f"epoch {epoch:3d}  loss {total / args.steps:.4f}  val macro-F1 {macro:.3f}  ({time.time() - started:.0f} s)", flush=True)
         if macro > best:
             best = macro
-            torch.save({"state_dict": model.state_dict(), "hidden": args.hidden, "classes": CLASSES,
+            torch.save({"state_dict": model.state_dict(), "kind": args.kind, "hidden": args.hidden, "classes": CLASSES,
                         "epoch": epoch, "val_macro_f1": macro}, args.out)
             print(text, flush=True)
     print(f"best val macro-F1 {best:.3f} → {args.out}")
